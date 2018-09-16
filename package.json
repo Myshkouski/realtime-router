@@ -1,5 +1,5 @@
 {
-  "name": "realtime-router",
+  "name": "@alexeimyshkouski/realtime-router",
   "version": "0.0.1",
   "description": "Router for Realtime Module Applications",
   "main": "index.js",
