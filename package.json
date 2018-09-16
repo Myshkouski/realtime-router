@@ -1,0 +1,16 @@
+{
+  "name": "realtime-router",
+  "version": "0.0.1",
+  "description": "Router for Realtime Module Applications",
+  "main": "index.js",
+  "author": "Alexei Myshkouski",
+  "dependencies": {
+    "debug": "^4.0.1",
+    "koa-compose": "^4.1.0",
+    "path-to-regexp": "^2.4.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Myshkouski/realtime-router.git"
+  }
+}
