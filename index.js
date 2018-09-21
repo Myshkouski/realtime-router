@@ -2,58 +2,74 @@ const pathToRegexp = require('path-to-regexp')
 const compose = require('koa-compose')
 const debug = require('debug')('ws-router')
 
+function run(cb) {
+  return new Promise(resolve => {
+    const returns = cb(resolve)
+
+    if (returns instanceof Promise) {
+      returns.then(resolve)
+    }
+  })
+}
+
 function createMiddleware(fn, re, end, keys, toPath) {
-  return function (ctx, next) {
-    let shouldHandle = true
+  if (re) {
+    return function(ctx, next) {
+      let {
+        scope,
+        params
+      } = ctx
 
-    let {
-      scope
-    } = ctx
+      if (typeof scope === 'string') {
+        if (!('originalScope' in ctx)) {
+          ctx.originalScope = scope
+        }
 
-    if (scope) {
-      if (!('originalScope' in ctx)) {
-        ctx.originalScope = scope
-      }
-
-      if (re) {
         let match = re.exec(scope)
 
-        if (!match) {
-          shouldHandle = false
-        } else {
-          ctx = Object.assign({}, ctx)
-
-          const params = {}
-
-          if (keys && keys.length) {
+        if (match) {
+          const nextParams = {}
+          if (keys.length) {
             for (const index in keys) {
               const {
                 name
               } = keys[index]
 
-              params[name] = match[+index + 1]
+              nextParams[name] = match[+index + 1]
             }
-
-            ctx.params = Object.assign(ctx.params || {}, params)
           }
 
           if (!end) {
-            scope = scope.slice(toPath(params).length)
-            if (scope[0] !== '/') {
-              scope = '/' + scope
+            let nextScope = scope.slice(toPath(nextParams).length)
+            if (nextScope[0] !== '/') {
+              nextScope = '/' + nextScope
             }
 
-            ctx.scope = scope
+            ctx.scope = nextScope
           }
+
+          return run(resolve => {
+            ctx.params = nextParams
+
+            return fn(ctx, () => {
+              ctx.params = params
+              ctx.scope = scope
+
+              resolve(next())
+            })
+          })
         }
       }
-    }
 
-    if (shouldHandle) {
-      return fn(ctx, next)
+      return next()
     }
+  }
 
-    return next()
+  return function(ctx, next) {
+    return run(resolve => {
+      ctx.params = {}
+      return fn(ctx, () => resolve(next()))
+    })
   }
 }
 
@@ -88,6 +104,8 @@ class WebsocketRouter {
     const middleware = []
     this._middleware = middleware
     this._composedMiddleware = compose(middleware)
+
+    debug('created')
   }
 
   message(...args) {
@@ -100,7 +118,7 @@ class WebsocketRouter {
 
   scope(path) {
     const typeOfPath = typeof path
-    if(typeOfPath !== 'string') {
+    if (typeOfPath !== 'string') {
       throw new TypeError('First arguments should be a string, passed "' + typeOfPath + '"')
     }
 
