@@ -1,14 +1,11 @@
 const pathToRegexp = require('path-to-regexp')
 const compose = require('koa-compose')
-const debug = require('debug')('ws-router')
+
+const debug = require('debug')('realtime:router')
 
 function run(cb) {
-  return new Promise(resolve => {
-    const returns = cb(resolve)
-
-    if (returns instanceof Promise) {
-      returns.then(resolve)
-    }
+  return new Promise((resolve, reject) => {
+    Promise.resolve(cb(resolve, reject)).then(resolve).catch(reject)
   })
 }
 
@@ -48,15 +45,19 @@ function createMiddleware(fn, re, end, keys, toPath) {
             ctx.scope = nextScope
           }
 
-          return run(resolve => {
+          return run((resolve, reject) => {
             ctx.params = nextParams
 
-            return fn(ctx, () => {
-              ctx.params = params
-              ctx.scope = scope
+            try {
+              return fn(ctx, () => {
+                ctx.params = params
+                ctx.scope = scope
 
-              resolve(next())
-            })
+                resolve(next())
+              })
+            } catch(error) {
+              reject(error)
+            }
           })
         }
       }
@@ -66,9 +67,13 @@ function createMiddleware(fn, re, end, keys, toPath) {
   }
 
   return function(ctx, next) {
-    return run(resolve => {
+    return run((resolve, reject) => {
       ctx.params = {}
-      return fn(ctx, () => resolve(next()))
+      try {
+        return fn(ctx, () => resolve(next()))
+      } catch(error) {
+        reject(error)
+      }
     })
   }
 }
